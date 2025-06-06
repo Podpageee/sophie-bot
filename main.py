@@ -6,8 +6,7 @@ import datetime
 import asyncio
 
 import openai
-from telegram import Update, Bot
-from telegram.constants import ChatAction
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -26,9 +25,6 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 USER_CHAT_ID   = int(os.getenv("USER_CHAT_ID"))
 
 openai.api_key = OPENAI_KEY
-
-# **Webhook entfernen**, damit Polling nicht in Konflikt gerät
-Bot(TELEGRAM_TOKEN).delete_webhook()
 
 # 2) Persona laden
 with open("persona.txt", "r", encoding="utf-8") as f:
@@ -51,37 +47,45 @@ def save_memory():
 # 4) Handler für eingehende Nachrichten
 async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    memory.append({"role":"user","content":text}); save_memory()
+    memory.append({"role":"user","content":text})
+    save_memory()
 
-    await context.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
+    await context.bot.send_chat_action(update.effective_chat.id, "typing")
     await asyncio.sleep(random.randint(6, 10))
 
     messages = [{"role":"system","content":PERSONA}] + memory + [{"role":"user","content":text}]
     resp = openai.chat.completions.create(model="gpt-4o", messages=messages)
     reply = resp.choices[0].message.content
 
-    memory.append({"role":"assistant","content":reply}); save_memory()
+    memory.append({"role":"assistant","content":reply})
+    save_memory()
+
     await update.message.reply_text(reply)
 
 # 5) Spontane Nachrichten-Funktion
 async def send_random(app):
-    prompt = random.choice([
+    prompts = [
         "Hallo Armin, wie geht's dir heute?",
         "Erinnerst du dich an unser WG-Brunch mit kaltem Kaffee? 😂",
         "Ich hab heute an unser Lernmarathon gedacht.",
         "Luzia hat heute wieder Crêpes gemacht lol 😅",
         "Wenn du hier wärst, würde ich dir einen Kaffee machen ☕️"
-    ])
-    memory.append({"role":"user","content":prompt}); save_memory()
+    ]
+    prompt = random.choice(prompts)
 
-    await app.bot.send_chat_action(USER_CHAT_ID, ChatAction.TYPING)
+    memory.append({"role":"user","content":prompt})
+    save_memory()
+
+    await app.bot.send_chat_action(USER_CHAT_ID, "typing")
     await asyncio.sleep(random.randint(6, 12))
 
     messages = [{"role":"system","content":PERSONA}] + memory + [{"role":"user","content":prompt}]
     resp = openai.chat.completions.create(model="gpt-4o", messages=messages)
     text = resp.choices[0].message.content
 
-    memory.append({"role":"assistant","content":text}); save_memory()
+    memory.append({"role":"assistant","content":text})
+    save_memory()
+
     await app.bot.send_message(chat_id=USER_CHAT_ID, text=text)
 
 # 6) Loop für Nachrichten zwischen 08:00–24:00
@@ -97,8 +101,11 @@ async def random_loop(app):
         if 8 <= now2.hour < 24:
             await send_random(app)
 
-# 7) Startup-Hook
+# 7) Startup-Hook: Webhook löschen & random_loop starten
 async def on_startup(app):
+    # Entfernt alle Webhooks, damit kein Conflict entsteht
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    # Starte die zufälligen Nachrichten im Hintergrund
     asyncio.create_task(random_loop(app))
 
 # 8) Bot starten
