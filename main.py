@@ -6,7 +6,8 @@ import datetime
 import asyncio
 
 import openai
-from telegram import Update, ChatAction
+from telegram import Update
+from telegram.constants import ChatAction
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -99,12 +100,10 @@ async def send_random(app):
 async def random_loop(app):
     while True:
         now = datetime.datetime.now()
-        # falls vor 8 Uhr, bis 8 Uhr schlafen
         if now.hour < 8:
             next_run = now.replace(hour=8, minute=0, second=0)
             await asyncio.sleep((next_run - now).total_seconds())
             continue
-        # Wartezeit zwischen 1 und 4 Stunden
         await asyncio.sleep(random.randint(3600, 14400))
         now2 = datetime.datetime.now()
         if 8 <= now2.hour < 24:
@@ -119,7 +118,7 @@ def main():
     app = (
         ApplicationBuilder()
         .token(TELEGRAM_TOKEN)
-        .post_init(on_startup)    # Startup-Task registrieren
+        .post_init(on_startup)
         .build()
     )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, antwort))
