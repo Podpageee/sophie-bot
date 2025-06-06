@@ -41,7 +41,6 @@ else:
 
 def save_memory():
     global memory
-    # nur die letzten 40 Einträge behalten
     memory = memory[-40:]
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memory, f, ensure_ascii=False, indent=2)
@@ -59,7 +58,10 @@ async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(random.randint(6, 10))
 
     messages = [{"role":"system","content":PERSONA}] + memory + [{"role":"user","content":text}]
-    resp = openai.ChatCompletion.create(model="gpt-4o", messages=messages)
+    resp = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=messages
+    )
     reply = resp.choices[0].message.content
 
     memory.append({"role":"assistant","content":reply})
@@ -88,7 +90,10 @@ async def send_random(app):
     await asyncio.sleep(random.randint(6, 12))
 
     messages = [{"role":"system","content":PERSONA}] + memory + [{"role":"user","content":prompt}]
-    resp = openai.ChatCompletion.create(model="gpt-4o", messages=messages)
+    resp = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=messages
+    )
     text = resp.choices[0].message.content
 
     memory.append({"role":"assistant","content":text})
