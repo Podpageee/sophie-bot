@@ -7,15 +7,17 @@ import asyncio
 
 import openai
 from telegram import Update
+from telegram.constants import ChatAction
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     MessageHandler,
+    CommandHandler,
     filters,
 )
 
-# 1) ENV-Variablen prüfen
-for var in ("OPENAI_KEY", "TELEGRAM_TOKEN", "USER_CHAT_ID"):
+# 1) ENV-Variablen prüfen und laden
+for var in ("OPENAI_KEY", "TELEGRAM_TOKEN", "USER_CHAT_ID", "WEBHOOK_URL", "PORT"):
     if not os.getenv(var):
         print(f"ERROR: Missing environment variable {var}")
         sys.exit(1)
@@ -23,6 +25,8 @@ for var in ("OPENAI_KEY", "TELEGRAM_TOKEN", "USER_CHAT_ID"):
 OPENAI_KEY     = os.getenv("OPENAI_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 USER_CHAT_ID   = int(os.getenv("USER_CHAT_ID"))
+WEBHOOK_URL    = os.getenv("WEBHOOK_URL")      # z.B. https://<deine-railway-subdomain>.up.railway.app/<TELEGRAM_TOKEN>
+PORT           = int(os.getenv("PORT", "8443"))
 
 openai.api_key = OPENAI_KEY
 
@@ -44,22 +48,31 @@ def save_memory():
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memory, f, ensure_ascii=False, indent=2)
 
-# 4) Handler für eingehende Nutzer-Nachrichten
+# 4) CommandHandler für /start
+async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Hi, ich bin Sophie Schertler – dein freche, witzige Studienfreundin-Bot! 😅"
+    )
+
+# 5) Handler für eingehende Nachrichten
 async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    memory.append({"role":"user","content":text}); save_memory()
+    memory.append({"role":"user","content":text})
+    save_memory()
 
-    await context.bot.send_chat_action(update.effective_chat.id, "typing")
+    await context.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
     await asyncio.sleep(random.randint(6, 10))
 
     msgs = [{"role":"system","content":PERSONA}] + memory + [{"role":"user","content":text}]
     resp = openai.chat.completions.create(model="gpt-4o", messages=msgs)
     reply = resp.choices[0].message.content
 
-    memory.append({"role":"assistant","content":reply}); save_memory()
+    memory.append({"role":"assistant","content":reply})
+    save_memory()
+
     await update.message.reply_text(reply)
 
-# 5) Funktion für spontane Nachrichten
+# 6) Funktion für spontane Nachrichten
 async def send_random(app):
     prompts = [
         "Hallo Armin, wie geht's dir heute?",
@@ -69,19 +82,23 @@ async def send_random(app):
         "Wenn du hier wärst, würde ich dir einen Kaffee machen ☕️"
     ]
     prompt = random.choice(prompts)
-    memory.append({"role":"user","content":prompt}); save_memory()
 
-    await app.bot.send_chat_action(USER_CHAT_ID, "typing")
+    memory.append({"role":"user","content":prompt})
+    save_memory()
+
+    await app.bot.send_chat_action(USER_CHAT_ID, ChatAction.TYPING)
     await asyncio.sleep(random.randint(6, 12))
 
     msgs = [{"role":"system","content":PERSONA}] + memory + [{"role":"user","content":prompt}]
     resp = openai.chat.completions.create(model="gpt-4o", messages=msgs)
     text = resp.choices[0].message.content
 
-    memory.append({"role":"assistant","content":text}); save_memory()
+    memory.append({"role":"assistant","content":text})
+    save_memory()
+
     await app.bot.send_message(chat_id=USER_CHAT_ID, text=text)
 
-# 6) Loop für Nachrichten zwischen 08:00 und 24:00
+# 7) Loop für zufällige Nachrichten zwischen 08:00 und 24:00
 async def random_loop(app):
     while True:
         now = datetime.datetime.now()
@@ -90,19 +107,21 @@ async def random_loop(app):
             next_run = now.replace(hour=8, minute=0, second=0)
             await asyncio.sleep((next_run - now).total_seconds())
             continue
-        # random interval 1–4h
+        # random Interval 1–4 Stunden
         await asyncio.sleep(random.randint(3600, 14400))
         now2 = datetime.datetime.now()
         if 8 <= now2.hour < 24:
             await send_random(app)
 
-# 7) Startup-Hook: Webhook löschen & Loop starten
+# 8) Startup-Hook: alte Webhooks löschen & Loop starten
 async def on_startup(app):
-    # alle alten Updates verwerfen
+    # Webhook entfernen (drop pending) und neuen setzen
     await app.bot.delete_webhook(drop_pending_updates=True)
+    await app.bot.set_webhook(WEBHOOK_URL)
+    # Starte spontaneous loop im Hintergrund
     asyncio.create_task(random_loop(app))
 
-# 8) Bot konfigurieren & starten
+# 9) Bot konfigurieren und Webhook-Server starten
 def main():
     app = (
         ApplicationBuilder()
@@ -110,9 +129,16 @@ def main():
         .post_init(on_startup)
         .build()
     )
+
+    app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, antwort))
-    # beim Polling gleich alte Updates droppen
-    app.run_polling(drop_pending_updates=True)
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TELEGRAM_TOKEN,
+        drop_pending_updates=True
+    )
 
 if __name__ == "__main__":
     main()
