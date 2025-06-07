@@ -66,11 +66,11 @@ async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # 6) Spontane Nachrichten-Funktion
 async def send_random(app):
     prompts = [
-        "Hallo Armin, wie geht's dir heute?",
-        "Erinnerst du dich an unser WG-Brunch mit kaltem Kaffee? 😂",
-        "Ich hab heute an unser Lernmarathon gedacht.",
-        "Luzia hat heute wieder Crêpes gemacht lol 😅",
-        "Wenn du hier wärst, würde ich dir einen Kaffee machen ☕️"
+       "Yo, wie läuft’s?",
+    "Bock auf ’nen schnellen Kaffee? ☕",
+    "Hey hehy :)",
+    "Heeeyy",
+    "Kurzes Status-Update?"
     ]
     p = random.choice(prompts)
     memory.append({"role":"user","content":p}); save_memory()
