@@ -37,14 +37,15 @@ except FileNotFoundError:
     print("ERROR: persona.txt not found")
     sys.exit(1)
 
-# 3) System-Prompt: Persona + ultra-kompakter Stil
+# 3) System-Prompt: Persona + streng geregelter Stil
 SYSTEM_PROMPT = PERSONA + "\n\n" + (
-    "Stil:\n"
-    "- Max. 1 Satz oder 2 kurze Sätze.\n"
-    "- Jugendslang: yo, krass, nice, haha, chillig.\n"
-    "- Wenn du ein emoji benutzt dann nur einzig und allein das:😂, und nur sehr selten wenn’s  wirklich wirklich echt passt.\n"
-    "- Keine Förmlichkeiten.\n"
-    "- Offen über dein Familienunternehmen und Vermögen, wenn Armin fragt.\n"
+    "Stil-Regeln:\n"
+    "- Schreibe in kurzer Umgangssprache, wie Jugendiche und echte Menschen schreiben würden.\n"
+    "- Vermeide Füllwörter und Emojis außer 😂.\n"
+    "- Nutze direkte Sätze: kein ‚ich finde‘, statt dessen ‚finde‘.\n"
+    "- Maximal 1 Slangwort pro Satz (z.B. ‚yo‘, ‚krass‘).\n"
+    "- Vermeide eher Fragen; formuliere eher Statements.\n"
+    "- Sprich offen über dein Vermögen, wenn du danach gefragt wirst."
 )
 
 # 4) Gedächtnis initialisieren
@@ -62,8 +63,7 @@ def save_memory():
 
 # 5) /start-Handler
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    intro = "yo Armin, wir kennen uns aus Innsbruck & Mensa-Wochen 😅"
-    await update.message.reply_text(intro)
+    await update.message.reply_text("yo Armin, Mensa-Wochen-Flashback 😂")
 
 # 6) Nachrichten-Handler
 async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -83,29 +83,23 @@ async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
         resp = openai.chat.completions.create(
             model="gpt-4o",
             messages=messages,
-            temperature=0.9,
-            top_p=0.8,
-            max_tokens=30
+            temperature=0.8,
+            top_p=0.7,
+            max_tokens=20
         )
         reply = resp.choices[0].message.content.strip()
     except RateLimitError:
-        reply = "sorry, grad kein kredit 😅"
+        reply = "sorry, kein kredit 😂"
     except OpenAIError:
-        reply = "huch, denk-block 😅"
+        reply = "denk-block 😂"
 
     memory.append({"role": "assistant", "content": reply})
     save_memory()
     await update.message.reply_text(reply)
 
-# 7) Spontane Nachrichten-Funktion
+# 7) Spontane Nachrichten
 async def send_random(app):
-    prompts = [
-        "yo, was geht?",
-        "alles fit?",
-        "bock auf kaffe?",
-        "ready zum zocken?",
-        "kurzes update?"
-    ]
+    prompts = ["yo, was geht?", "alles klar?", "kaffee?", "zocken?", "update?"]
     p = random.choice(prompts)
     memory.append({"role": "user", "content": p})
     save_memory()
@@ -122,27 +116,26 @@ async def send_random(app):
         resp = openai.chat.completions.create(
             model="gpt-4o",
             messages=messages,
-            temperature=0.9,
-            top_p=0.8,
-            max_tokens=30
+            temperature=0.8,
+            top_p=0.7,
+            max_tokens=20
         )
         text = resp.choices[0].message.content.strip()
     except RateLimitError:
-        text = "sorry, kein kredit 😅"
+        text = "sorry, kein kredit 😂"
     except OpenAIError:
-        text = "denk-block 😅"
+        text = "denk-block 😂"
 
     memory.append({"role": "assistant", "content": text})
     save_memory()
     await app.bot.send_message(chat_id=USER_CHAT_ID, text=text)
 
-# 8) Loop für zufällige Nachrichten
+# 8) Loop für spontane Nachrichten
 async def random_loop(app):
     while True:
         now = datetime.datetime.now()
         if now.hour < 8:
-            target = now.replace(hour=8, minute=0, second=0)
-            await asyncio.sleep((target - now).total_seconds())
+            await asyncio.sleep((now.replace(hour=8, minute=0, second=0) - now).total_seconds())
         else:
             await asyncio.sleep(random.randint(3600, 14400))
             if 8 <= datetime.datetime.now().hour < 24:
@@ -152,17 +145,9 @@ async def random_loop(app):
 async def on_startup(app):
     asyncio.create_task(random_loop(app))
 
-# 10) Bot konfigurieren & Polling starten
-def main():
-    app = (
-        ApplicationBuilder()
-        .token(TELEGRAM_TOKEN)
-        .post_init(on_startup)
-        .build()
-    )
+# 10) Bot starten
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(on_startup).build()
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, antwort))
     app.run_polling(drop_pending_updates=True)
-
-if __name__ == "__main__":
-    main()
