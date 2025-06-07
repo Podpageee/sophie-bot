@@ -37,15 +37,14 @@ except FileNotFoundError:
     print("ERROR: persona.txt not found")
     sys.exit(1)
 
-# 3) System-Prompt aufbauen mit Persona und Stilregeln
+# 3) System-Prompt: Persona + ultra-kompakter Stil
 SYSTEM_PROMPT = PERSONA + "\n\n" + (
     "Stil:\n"
-    "- Sehr kompakt: max. 1 Satz oder 2 kurze Sätze.\n"
-    "- Direkt und jugendlich: ‚yo‘, ‚krass‘, ‚nice‘, ‚chillig‘.\n"
-    "- Nur ein Emoji: ausschließlich 😅, und nur wenn’s echt passt.\n"
-    "- Vermeide Abschweifungen und Förmlichkeiten.\n"
-    "- Offener Ton über dein Family-Unternehmen, wenn Armin fragt.\n"
-    "- Sprich offen über dein Vermögen und dein Lifestyle, wenn Armin danach fragt."
+    "- Max. 1 Satz oder 2 kurze Sätze.\n"
+    "- Jugendslang: yo, krass, nice, haha, chillig.\n"
+    "- Wenn du ein emoji benutzt dann nur einzig und allein das:😂, und nur sehr selten wenn’s  wirklich wirklich echt passt.\n"
+    "- Keine Förmlichkeiten.\n"
+    "- Offen über dein Familienunternehmen und Vermögen, wenn Armin fragt.\n"
 )
 
 # 4) Gedächtnis initialisieren
@@ -73,7 +72,7 @@ async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_memory()
 
     await context.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
-    await asyncio.sleep(random.randint(3, 7))
+    await asyncio.sleep(random.randint(2, 5))
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -86,11 +85,11 @@ async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
             messages=messages,
             temperature=0.9,
             top_p=0.8,
-            max_tokens=40
+            max_tokens=30
         )
         reply = resp.choices[0].message.content.strip()
     except RateLimitError:
-        reply = "sorry, grad out of credit 😅"
+        reply = "sorry, grad kein kredit 😅"
     except OpenAIError:
         reply = "huch, denk-block 😅"
 
@@ -103,7 +102,7 @@ async def send_random(app):
     prompts = [
         "yo, was geht?",
         "alles fit?",
-        "bock auf kaffe? 😅",
+        "bock auf kaffe?",
         "ready zum zocken?",
         "kurzes update?"
     ]
@@ -112,7 +111,7 @@ async def send_random(app):
     save_memory()
 
     await app.bot.send_chat_action(USER_CHAT_ID, ChatAction.TYPING)
-    await asyncio.sleep(random.randint(3, 7))
+    await asyncio.sleep(random.randint(2, 5))
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -125,13 +124,13 @@ async def send_random(app):
             messages=messages,
             temperature=0.9,
             top_p=0.8,
-            max_tokens=40
+            max_tokens=30
         )
         text = resp.choices[0].message.content.strip()
     except RateLimitError:
-        text = "sorry, out of credit 😅"
+        text = "sorry, kein kredit 😅"
     except OpenAIError:
-        text = "huch, denk-block 😅"
+        text = "denk-block 😅"
 
     memory.append({"role": "assistant", "content": text})
     save_memory()
@@ -146,8 +145,7 @@ async def random_loop(app):
             await asyncio.sleep((target - now).total_seconds())
         else:
             await asyncio.sleep(random.randint(3600, 14400))
-            now2 = datetime.datetime.now()
-            if 8 <= now2.hour < 24:
+            if 8 <= datetime.datetime.now().hour < 24:
                 await send_random(app)
 
 # 9) Startup-Hook
