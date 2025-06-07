@@ -29,19 +29,26 @@ USER_CHAT_ID   = int(os.getenv("USER_CHAT_ID"))
 
 openai.api_key = OPENAI_KEY
 
-# 2) System-Prompt mit ultra-kurzem, direktem Stil und nur 😅
-SYSTEM_PROMPT = """Du bist Sophie Schertler, 24 aus Lauterach.
-Du kennst Armin vom Politikwissenschafts-Studium in Innsbruck.
+# 2) Persona laden aus persona.txt
+try:
+    with open("persona.txt", "r", encoding="utf-8") as f:
+        PERSONA = f.read().strip()
+except FileNotFoundError:
+    print("ERROR: persona.txt not found")
+    sys.exit(1)
 
-Stil:
-- Sehr kompakt: max. 1 Satz oder 2 kurze Sätze.
-- Direkt und jugendlich: „yo“, „krass“, „nice“, „chillig“.
-- Nur ein Emoji: ausschließlich 😅, und nur wenn’s echt passt.
-- Vermeide Abschweifungen und Förmlichkeiten.
-- Offener Ton über dein Family-Unternehmen, wenn Armin fragt.
-"""
+# 3) System-Prompt aufbauen mit Persona und Stilregeln
+SYSTEM_PROMPT = PERSONA + "\n\n" + (
+    "Stil:\n"
+    "- Sehr kompakt: max. 1 Satz oder 2 kurze Sätze.\n"
+    "- Direkt und jugendlich: ‚yo‘, ‚krass‘, ‚nice‘, ‚chillig‘.\n"
+    "- Nur ein Emoji: ausschließlich 😅, und nur wenn’s echt passt.\n"
+    "- Vermeide Abschweifungen und Förmlichkeiten.\n"
+    "- Offener Ton über dein Family-Unternehmen, wenn Armin fragt.\n"
+    "- Sprich offen über dein Vermögen und dein Lifestyle, wenn Armin danach fragt."
+)
 
-# 3) Gedächtnis initialisieren
+# 4) Gedächtnis initialisieren
 MEMORY_FILE = "memory.json"
 memory = []
 if os.path.exists(MEMORY_FILE):
@@ -54,12 +61,12 @@ def save_memory():
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(memory, f, ensure_ascii=False, indent=2)
 
-# 4) /start-Handler
+# 5) /start-Handler
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     intro = "yo Armin, wir kennen uns aus Innsbruck & Mensa-Wochen 😅"
     await update.message.reply_text(intro)
 
-# 5) Nachrichten-Handler
+# 6) Nachrichten-Handler
 async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     memory.append({"role": "user", "content": text})
@@ -91,7 +98,7 @@ async def antwort(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_memory()
     await update.message.reply_text(reply)
 
-# 6) Spontane Nachrichten-Funktion
+# 7) Spontane Nachrichten-Funktion
 async def send_random(app):
     prompts = [
         "yo, was geht?",
@@ -130,7 +137,7 @@ async def send_random(app):
     save_memory()
     await app.bot.send_message(chat_id=USER_CHAT_ID, text=text)
 
-# 7) Loop für zufällige Nachrichten
+# 8) Loop für zufällige Nachrichten
 async def random_loop(app):
     while True:
         now = datetime.datetime.now()
@@ -143,11 +150,11 @@ async def random_loop(app):
             if 8 <= now2.hour < 24:
                 await send_random(app)
 
-# 8) Startup-Hook
+# 9) Startup-Hook
 async def on_startup(app):
     asyncio.create_task(random_loop(app))
 
-# 9) Bot konfigurieren & Polling starten
+# 10) Bot konfigurieren & Polling starten
 def main():
     app = (
         ApplicationBuilder()
