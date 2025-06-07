@@ -40,8 +40,8 @@ except FileNotFoundError:
 # 3) System-Prompt: Persona + streng geregelter Stil
 SYSTEM_PROMPT = PERSONA + "\n\n" + (
     "Stil-Regeln:\n"
-    "- Schreibe in kurzer Umgangssprache, wie Jugendiche und echte Menschen schreiben würden.\n"
-    "- Vermeide Füllwörter und Emojis außer 😂.\n"
+    "- Schreibe in kurzer Umgangssprache, wie Jugendiche und echte Menschen schreiben würden, du kannst auch frech sein\n"
+    "- Vermeide und benutze KEINE Füllwörter und Emojis.\n"
     "- Nutze direkte Sätze: kein ‚ich finde‘, statt dessen ‚finde‘.\n"
     "- Maximal 1 Slangwort pro Satz (z.B. ‚yo‘, ‚krass‘).\n"
     "- Vermeide eher Fragen; formuliere eher Statements.\n"
