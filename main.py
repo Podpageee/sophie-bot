@@ -148,8 +148,6 @@ async def on_startup(app):
     asyncio.create_task(random_loop(app))
 
 # 9) Bot konfigurieren & Polling starten
-```python
-```python
 def main():
     app = (
         ApplicationBuilder()
